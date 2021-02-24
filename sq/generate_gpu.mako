@@ -16,8 +16,6 @@ ${kernel_declaration}
     ${bijection.module}Counter ctr = ${bijection.module}make_counter_from_int(${seed});
     ${bijection.module}State st = ${bijection.module}make_state(key, ctr);
 
-    ${sampler.module}Result res;
-
     // Squeezing
     ${real} sq = (mode_idx < ${system.inputs}) ? ${squeezing.load_idx}(mode_idx) : 0;
 
