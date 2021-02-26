@@ -1,6 +1,7 @@
 import numpy
 
 from reikna import helpers
+from reikna.cluda import OutOfResourcesError
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.functions as functions
 from reikna.core import Computation, Parameter, Type, Annotation, Transformation
@@ -8,6 +9,9 @@ from reikna.algorithms import Reduce, predicate_sum
 from reikna.fft import FFT
 
 from .system import ordering, Representation
+
+
+TEMPLATE = helpers.template_for(__file__)
 
 
 class PopulationMeter(Computation):
@@ -312,58 +316,72 @@ class CompoundClickProbabilityMeter(Computation):
 
         plan = plan_factory()
 
-        for_reduction = Type(alpha.dtype, (alpha.shape[0], self._max_total_clicks + 1))
+        samples, modes = alpha.shape
 
-        meter_trf = Transformation([
-            Parameter('output', Annotation(for_reduction, 'o')),
-            Parameter('alpha', Annotation(alpha, 'i')),
-            Parameter('beta', Annotation(beta, 'i')),
-            ],
-            """
-            <%
-                real = dtypes.ctype(dtypes.real_for(alpha.dtype))
-                comp = dtypes.ctype(alpha.dtype)
-            %>
-                VSIZE_T sample_idx = ${idxs[0]};
-                VSIZE_T order = ${idxs[1]};
+        for_reduction = Type(alpha.dtype, (samples, self._max_total_clicks + 1))
 
-                ${real} theta = ${2 * numpy.pi / (max_total_clicks + 1)} * order;
-                ${comp} coeff = ${polar_unit}(-theta);
+        prepared_state = plan.temp_array_like(alpha)
 
-                ${comp} result = COMPLEX_CTR(${comp})(1, 0);
-                for (VSIZE_T i = 0; i < ${max_total_clicks}; i++) {
-                    ${comp} alpha = ${alpha.load_idx}(sample_idx, i);
-                    ${comp} beta = ${beta.load_idx}(sample_idx, i);
-                    ${comp} t = ${mul_cc}(alpha, beta);
-                    ${comp} np = ${exp_c}(COMPLEX_CTR(${comp})(-t.x, -t.y));
-                    ${comp} cp = COMPLEX_CTR(${comp})(1 - np.x, -np.y);
-
-                    ${comp} cpk = ${add_cc}(
-                        COMPLEX_CTR(${comp})(1 - cp.x, -cp.y),
-                        ${mul_cc}(cp, coeff)
-                        );
-
-                    result = ${mul_cc}(result, cpk);
-                }
-
-                ${output.store_same}(result);
-                """,
+        plan.kernel_call(
+            TEMPLATE.get_def("compound_click_probability_prepare"),
+            [prepared_state, alpha, beta],
+            kernel_name="compound_click_probability_prepare",
+            global_size=alpha.shape,
             render_kwds=dict(
                 mul_cc=functions.mul(alpha.dtype, alpha.dtype),
-                add_cc=functions.add(alpha.dtype, alpha.dtype),
                 exp_c=functions.exp(alpha.dtype),
-                polar_unit=functions.polar_unit(dtypes.real_for(alpha.dtype)),
-                modes=self._system.modes,
-                max_total_clicks=self._max_total_clicks,
                 ))
 
+        # Block size is limited by the amount of available local memory.
+        # In some OpenCL implementations the number reported cannot actually be fully used
+        # (because it's used by kernel arguments), so we're padding it a little.
+        local_mem_size = device_params.local_mem_size
+        max_elems = (local_mem_size - 256) // alpha.dtype.itemsize
+        block_size = 2**helpers.log2(max_elems)
+
+        # No reason to have block size larger than the number of modes
+        block_size = min(block_size, helpers.bounding_power_of_2(modes))
+
+        products_gsize = (samples, helpers.min_blocks(self._max_total_clicks + 1, block_size) * block_size)
+        products = plan.temp_array_like(for_reduction)
+
+        read_size = min(block_size, device_params.max_work_group_size)
+
+        while read_size > 1:
+
+            full_steps = modes // block_size
+            remainder_size = modes % block_size
+
+            try:
+                plan.kernel_call(
+                    TEMPLATE.get_def("compound_click_probability_aggregate"),
+                    [products, prepared_state],
+                    kernel_name="compound_click_probability_aggregate",
+                    global_size=products_gsize,
+                    local_size=(1, read_size,),
+                    render_kwds=dict(
+                        block_size=block_size,
+                        read_size=read_size,
+                        full_steps=full_steps,
+                        remainder_size=remainder_size,
+                        output_size=self._max_total_clicks + 1,
+                        mul_cc=functions.mul(alpha.dtype, alpha.dtype),
+                        add_cc=functions.add(alpha.dtype, alpha.dtype),
+                        polar_unit=functions.polar_unit(dtypes.real_for(alpha.dtype)),
+                        modes=self._system.modes,
+                        max_total_clicks=self._max_total_clicks,
+                        ))
+
+            except OutOfResourcesError:
+                read_size //= 2
+
+            break
+
         reduction = Reduce(for_reduction, predicate_sum(alpha.dtype), axes=(0,))
-        reduction.parameter.input.connect(
-            meter_trf, meter_trf.output, alpha_p=meter_trf.alpha, beta_p=meter_trf.beta)
 
         temp = plan.temp_array_like(reduction.parameter.output)
 
-        plan.computation_call(reduction, temp, alpha, beta)
+        plan.computation_call(reduction, temp, products)
 
         fft = FFT(temp)
         real_trf = Transformation([
