@@ -4,8 +4,8 @@ import numpy
 
 from reikna.cluda import ocl_api
 
-from sq.meters_cpu import *
-from sq.system import System, Representation, State
+from sq import *
+from sq.system import State
 from sq import generate_gpu, generate_cpu
 
 

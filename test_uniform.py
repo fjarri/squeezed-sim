@@ -1,9 +1,6 @@
 import numpy
 
-from sq.simulate import simulate_sequential, Measure
-from sq.meters_cpu import *
-from sq.system import System, Representation
-from sq.plot import plot_results
+from sq import *
 
 
 def random_unitary(n, seed=None):
