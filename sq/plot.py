@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import numpy
 import matplotlib.pyplot as plt
@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 def plot_results(merged_result_set, tags={}, path="."):
 
-    if not os.path.exists(path):
-        os.mkdir(path)
+    figures_dir = Path(path)
+    figures_dir.mkdir(parents=True, exist_ok=True)
 
     for (label, stage, representation), result in merged_result_set.results.items():
         if label not in tags:
@@ -37,7 +37,7 @@ def plot_results(merged_result_set, tags={}, path="."):
                 sp.plot(result.x_values, result.reference)
 
             fig.tight_layout()
-            fig.savefig(os.path.join(path, f"{prefix}-lin.pdf"))
+            fig.savefig(str(figures_dir / f"{prefix}-lin.pdf"))
             plt.close(fig)
 
         if log:
@@ -58,5 +58,5 @@ def plot_results(merged_result_set, tags={}, path="."):
                 sp.plot(result.x_values, result.reference)
 
             fig.tight_layout()
-            fig.savefig(os.path.join(path, f"{prefix}-log.pdf"))
+            fig.savefig(str(figures_dir / f"{prefix}-log.pdf"))
             plt.close(fig)
