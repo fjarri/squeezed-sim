@@ -12,14 +12,14 @@ from sq.plot import plot_results
 def transmission_matrix():
 
     re = []
-    with open('matrix_re.csv') as csvfile:
+    with open('experimental_data/matrix_re.csv') as csvfile:
         r = csv.reader(csvfile, delimiter=',')
         for row in r:
             re.append([float(x) for x in row])
     re = numpy.array(re)
 
     im = []
-    with open('matrix_im.csv') as csvfile:
+    with open('experimental_data/matrix_im.csv') as csvfile:
         r = csv.reader(csvfile, delimiter=',')
         for row in r:
             im.append([float(x) for x in row])
@@ -36,7 +36,7 @@ def transmission_matrix():
 def squeezing_coefficients():
 
     res = []
-    with open('squeezing_parametersq.csv') as csvfile:
+    with open('experimental_data/squeezing_parametersq.csv') as csvfile:
         r = csv.reader(csvfile, delimiter=',')
         for row in r:
             for x in row:
@@ -48,7 +48,7 @@ def squeezing_coefficients():
 
 
 def add_reference_experiment(system, merged_result_set):
-    res = loadmat('exp_cp.mat')
+    res = loadmat('experimental_data/exp_cp.mat')
 
     for key, result in merged_result_set.results.items():
 
