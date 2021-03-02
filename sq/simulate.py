@@ -30,14 +30,23 @@ class ResultSet:
         self.results = defaultdict(list)
 
     def add_result(self, result, label, stage, representation):
+        assert isinstance(result, Result)
         self.results[(label, stage, representation)].append(result)
 
     def add_result_set(self, result_set):
-        for (label, stage, representation), result in result_set.results.items():
-            self.add_result(result, label, stage, representation)
+        for (label, stage, representation), results in result_set.results.items():
+            for result in results:
+                self.add_result(result, label, stage, representation)
 
     def merge_results(self):
         return MergedResultSet({key: Result.merge(chunks) for key, chunks in self.results.items()})
+
+    @staticmethod
+    def merge(result_sets):
+        result_set = ResultSet()
+        for rs in result_sets:
+            result_set.add_result_set(rs)
+        return result_set.merge_results()
 
 
 class MergedResultSet:
