@@ -79,7 +79,7 @@ def run():
     results_dir = 'compound_click_probability'
 
     parameter_sets = [
-        dict(modes=16, ensembles=100, samples_per_ensemble=10000, seed=123),
+        dict(modes=16, ensembles=100, samples_per_ensemble=1000000, seed=123),
         dict(modes=32, ensembles=100, samples_per_ensemble=10000, seed=123),
         dict(modes=64, ensembles=100, samples_per_ensemble=10000, seed=123),
         dict(modes=128, ensembles=100, samples_per_ensemble=10000, seed=123),
