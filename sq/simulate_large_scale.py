@@ -16,7 +16,6 @@ from .simulate import make_seed, used_representations, ResultSet
 
 def worker_gpu(worker_id, out_queue, in_queue, system, samples, measurements, gpu_id):
 
-    print(f"{worker_id}: initializing on GPU {gpu_id}")
     api = ocl_api()
     device = api.get_platforms()[0].get_devices()[gpu_id]
     thread = api.Thread(device)
@@ -36,14 +35,12 @@ def worker_gpu(worker_id, out_queue, in_queue, system, samples, measurements, gp
             apply_matrix=apply_matrix,
             prepared_meters=prepared_meters)
 
-    print(f"{worker_id}: initializing done")
-
     while True:
 
         command = in_queue.get()
 
         if command == 'stop':
-            print(f"{worker_id}: stopping")
+            print(f"Worker {worker_id}: stopping")
             break
 
         seed = command
@@ -53,7 +50,7 @@ def worker_gpu(worker_id, out_queue, in_queue, system, samples, measurements, gp
 
         for representation in used_representations(measurements):
 
-            print(f"{worker_id}: processing representation {representation}")
+            #print(f"{worker_id}: processing representation {representation}")
 
             rng = numpy.random.RandomState(seed)
             in_state = prepared_calls[representation]['generate_input_state'](make_seed(rng))
@@ -70,8 +67,6 @@ def worker_gpu(worker_id, out_queue, in_queue, system, samples, measurements, gp
 
         out_queue.put((worker_id, seed, result_set))
 
-        print(f"{worker_id}: processing seed {seed}: done")
-
 
 def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, seed, gpu_name_filters=[]):
 
@@ -84,7 +79,7 @@ def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, 
         result_sets = {}
 
     ensembles = ensembles - len(result_sets)
-
+    print(fname, "- remaining ensembles:", ensembles)
     if ensembles <= 0:
         return ResultSet.merge(result_sets.values())
 
@@ -109,10 +104,12 @@ def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, 
 
     # Initial tasks
     for worker_id in range(len(gpu_ids)):
+        seed = make_seed(rng)
         while seed in result_sets:
             seed = make_seed(rng)
         command_queues[worker_id].put(seed)
 
+    ensembles_started = len(gpu_ids)
     ensembles_finished = 0
     while True:
         worker_id, worker_seed, worker_result_set = result_queue.get()
@@ -122,9 +119,11 @@ def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, 
         if ensembles_finished == ensembles:
             break
 
-        while seed in result_sets:
+        if ensembles_started < ensembles:
             seed = make_seed(rng)
-        command_queues[worker_id].put(seed)
+            while seed in result_sets:
+                seed = make_seed(rng)
+            command_queues[worker_id].put(seed)
 
     for command_queue in command_queues:
         command_queue.put('stop')
