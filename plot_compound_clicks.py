@@ -1,6 +1,5 @@
 from pathlib import Path
 import pickle
-import matplotlib.pyplot as plt
 import mplhelpers as mplh
 
 import numpy
@@ -152,8 +151,8 @@ def run():
     sp.set_ylabel('$M P_m$')
 
     fig.tight_layout(pad=0.1)
-    fig.savefig(f"{results_dir}/compound_click_probability_log.pdf")
-    plt.close(fig)
+    fig.savefig(f"compound_click_probability_log.pdf")
+    mplh.close(fig)
 
 
 if __name__ == '__main__':
