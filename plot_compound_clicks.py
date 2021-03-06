@@ -1,11 +1,13 @@
 from pathlib import Path
 import pickle
 import matplotlib.pyplot as plt
+import mplhelpers as mplh
 
 import numpy
 
 from sq import *
 from sq.simulate_large_scale import simulate_mp
+from sq.simulate import ResultSet
 
 
 def random_unitary(n, seed=None):
@@ -49,9 +51,18 @@ def run_simulation(parameter_set, results_dir):
     modes = parameter_set['modes']
     ensembles = parameter_set['ensembles']
     samples_per_ensemble = parameter_set['samples_per_ensemble']
+    seed = parameter_set['seed']
 
-    rng = numpy.random.RandomState(parameter_set['seed'])
-    seed = make_seed(rng)
+    results_fname = f"{results_dir}/result_sets modes={modes} seed={seed}.pickle"
+
+    if Path(results_fname).exists():
+        with open(results_fname, 'rb') as f:
+            result_sets = pickle.load(f)
+
+        if len(result_sets) >= ensembles:
+            return ResultSet.merge(list(result_sets.values())[:ensembles])
+
+    rng = numpy.random.RandomState(seed)
 
     system = System(
         unitary=prepare_unitary(parameter_set, results_dir),
@@ -80,20 +91,26 @@ def run():
 
     parameter_sets = [
         dict(modes=16, ensembles=100, samples_per_ensemble=1000000, seed=123),
-        dict(modes=32, ensembles=100, samples_per_ensemble=10000, seed=123),
+        #dict(modes=32, ensembles=100, samples_per_ensemble=10000, seed=123),
         dict(modes=64, ensembles=100, samples_per_ensemble=10000, seed=123),
-        dict(modes=128, ensembles=100, samples_per_ensemble=10000, seed=123),
+        #dict(modes=128, ensembles=100, samples_per_ensemble=10000, seed=123),
         dict(modes=256, ensembles=100, samples_per_ensemble=1000, seed=123),
-        dict(modes=512, ensembles=100, samples_per_ensemble=1000, seed=123),
+        #dict(modes=512, ensembles=100, samples_per_ensemble=1000, seed=123),
         dict(modes=1024, ensembles=100, samples_per_ensemble=160, seed=123),
-        dict(modes=2048, ensembles=100, samples_per_ensemble=80, seed=123),
+        #dict(modes=2048, ensembles=100, samples_per_ensemble=80, seed=123),
         dict(modes=4096, ensembles=100, samples_per_ensemble=40, seed=123),
-        dict(modes=8192, ensembles=100, samples_per_ensemble=20, seed=123),
+        #dict(modes=8192, ensembles=100, samples_per_ensemble=20, seed=123),
         dict(modes=16384, ensembles=100, samples_per_ensemble=20, seed=123),
     ]
 
     results_dir = "compound_clicks_results"
     Path(results_dir).mkdir(parents=True, exist_ok=True)
+
+    width = 1 # 1 column
+    column_width_inches = 8.6 / 2.54 # PRL single column
+    aspect = (numpy.sqrt(5) - 1) / 2
+    fig_width = column_width_inches * width
+    fig_height = fig_width * aspect # height in inches
 
     merged_result_sets = []
     for parameter_set in parameter_sets:
@@ -101,20 +118,41 @@ def run():
         merged_result_sets.append(merged_result_set)
 
 
-    fig = plt.figure(figsize=(12, 8))
+    linestyles = ['-', '--', ':', '-.', '--.', '-..']
+
+    fig = mplh.figure()
     sp = fig.add_subplot(1, 1, 1)
+    sp.set_yscale('log')
+    sp.set_xlim(0, 1)
+    limit = 1e-7
+    sp.set_ylim(limit, 1e2)
 
-    for ps, mrs in zip(parameter_sets, merged_result_sets):
+
+    for i, (ps, mrs) in enumerate(zip(parameter_sets, merged_result_sets)):
         results = mrs.results[('compound_click_probability', 'out', Representation.POSITIVE_P)]
-        x = results.x_values / ps['modes']
-        sp.errorbar(x, results.values, yerr=results.errors, label=f"M={ps['modes']}")
+        modes = ps['modes']
+        x = results.x_values / modes
+        scale = 1 / modes # results.values.max()
+        y = results.values / scale
+        yerr = results.errors / scale
 
-    sp.legend()
-    sp.set_xlabel('$n / M$')
-    sp.set_ylabel('$P(n)$')
+        idx_min = numpy.argmax(y > limit)
+        idx_max = y.size - 1 - numpy.argmax(y[::-1] > limit)
 
-    fig.tight_layout()
-    fig.savefig(f"{results_dir}/plot.pdf")
+        x = x[idx_min:idx_max]
+        y = y[idx_min:idx_max]
+        yerr = yerr[idx_min:idx_max]
+
+        sp.fill_between(x, y - yerr, y + yerr, alpha=0.3, linewidth=0, facecolor='grey')
+        label = f"$M=2^{{{numpy.log2(ps['modes']).astype(numpy.int32)}}}$"
+        sp.plot(x, y, label=label, dashes=mplh.dash[linestyles[i]])
+
+    sp.legend(handlelength=3)
+    sp.set_xlabel('$m / M$')
+    sp.set_ylabel('$M P_m$')
+
+    fig.tight_layout(pad=0.1)
+    fig.savefig(f"{results_dir}/compound_click_probability_log.pdf")
     plt.close(fig)
 
 

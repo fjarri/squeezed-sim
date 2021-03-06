@@ -81,7 +81,7 @@ def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, 
     ensembles = ensembles - len(result_sets)
     print(fname, "- remaining ensembles:", ensembles)
     if ensembles <= 0:
-        return ResultSet.merge(result_sets.values())
+        return ResultSet.merge(list(result_sets.values())[:ensembles])
 
     api = ocl_api()
     gpu_ids = [
