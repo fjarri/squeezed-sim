@@ -148,7 +148,7 @@ def run():
 
     sp.legend(handlelength=3)
     sp.set_xlabel('$m / M$')
-    sp.set_ylabel('$M P_m$')
+    sp.set_ylabel('$M \\mathcal{P}_M(m)$')
 
     fig.tight_layout(pad=0.1)
     fig.savefig(f"compound_click_probability_log.pdf")

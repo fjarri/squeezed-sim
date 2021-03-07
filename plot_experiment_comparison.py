@@ -40,8 +40,8 @@ def plot_experiment():
     sp.plot(result.x_values, result.values, label='simulation')
     sp.plot(result.x_values, result.reference, dashes=mplh.dash['--'], label='experiment')
     sp.legend()
-    sp.set_xlabel('mode $m$')
-    sp.set_ylabel('$\\langle p(m) \\rangle$')
+    sp.set_xlabel('$j$')
+    sp.set_ylabel('$\\langle \\pi_j(1) \\rangle$')
 
     fig.tight_layout(pad=0.1)
     fig.savefig(f"experimental_comparison_clicks.pdf")
@@ -60,8 +60,8 @@ def plot_experiment():
     sp.plot(result.x_values, result.values, label='simulation')
     sp.plot(result.x_values, result.reference, dashes=mplh.dash['--'], label='experiment')
     sp.legend()
-    sp.set_xlabel('clicks $n$')
-    sp.set_ylabel('$P(n)$')
+    sp.set_xlabel('$m$')
+    sp.set_ylabel('$\\mathcal{P}(m)$')
 
     fig.tight_layout(pad=0.1)
     fig.savefig(f"experimental_comparison_compound.pdf")
