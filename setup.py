@@ -12,6 +12,7 @@ REQUIRES_PYTHON = '>=3.7.0'
 
 REQUIRED = [
     'numpy>=1.6.0',
+    'scipy>=1.4',
     'mako>=1.0.0',
     'reikna>=0.7',
     'matplotlib>=3',
