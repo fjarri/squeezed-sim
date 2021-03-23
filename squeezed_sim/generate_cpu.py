@@ -9,74 +9,28 @@ def generate_input_state(system, representation, samples, seed):
 
     nts = (system.thermal_noise / 2)**0.5
 
-    if representation == Representation.POSITIVE_P:
-
-        w1 = rng.normal(size=(samples, system.inputs))
-        w2 = rng.normal(size=(samples, system.inputs))
-        w3 = (
-            rng.normal(size=(samples, system.inputs))
-            + 1j * rng.normal(size=(samples, system.inputs)))
-
-        sr = numpy.sinh(system.squeezing)
-        cr = numpy.cosh(system.squeezing)
-        a = (sr * (cr + 1) / 2)**0.5
-        b = (sr * (cr - 1) / 2)**0.5
-
-        alpha = numpy.zeros((samples, system.modes), numpy.complex128)
-        beta = numpy.zeros((samples, system.modes), numpy.complex128)
-
-        alpha[:,:system.inputs] = a * w1 + b * w2 + nts * w3
-        beta[:,:system.inputs] = b * w1 + a * w2 + nts * w3.conj()
-
-    elif representation == Representation.WIGNER:
-
-        w1 = rng.normal(size=(samples, system.modes))
-        w2 = rng.normal(size=(samples, system.modes))
-        w3 = (
-            rng.normal(size=(samples, system.inputs))
-            + 1j * rng.normal(size=(samples, system.inputs)))
-
-        er = numpy.exp(system.squeezing)
-
-        a = numpy.concatenate([0.5 * er, numpy.ones(system.modes - system.inputs) * 0.5])
-        b = numpy.concatenate([0.5 / er, numpy.ones(system.modes - system.inputs) * 0.5])
-        alpha = a * w1 + 1j * b * w2
-        alpha[:,:system.inputs] += nts * w3
-        beta = alpha.conj()
-
-    elif representation == Representation.Q:
-
-        w1 = rng.normal(size=(samples, system.modes))
-        w2 = rng.normal(size=(samples, system.modes))
-        w3 = (
-            rng.normal(size=(samples, system.inputs))
-            + 1j * rng.normal(size=(samples, system.inputs)))
-
-        e2r = numpy.exp(2 * system.squeezing)
-
-        a = numpy.concatenate([0.5 * (e2r + 1)**0.5, numpy.ones(system.modes - system.inputs) * 0.5**0.5])
-        b = numpy.concatenate([0.5 * (1 / e2r + 1)**0.5, numpy.ones(system.modes - system.inputs) * 0.5**0.5])
-
-        alpha = a * w1 + 1j * b * w2
-        alpha[:,:system.inputs] += nts * w3
-        beta = alpha.conj()
-
-    else:
-        raise NotImplementedError(representation)
-
     s = ordering(representation)
 
-    alpha_i = alpha * system.input_transmission
-    beta_i = beta * system.input_transmission
+    alpha = numpy.zeros((samples, system.modes), numpy.complex128)
+    beta = numpy.zeros((samples, system.modes), numpy.complex128)
 
-    if (system.input_transmission != 1).any() and s != 0:
-        w = (
-            rng.normal(size=(samples, system.modes))
-            + 1j * rng.normal(size=(samples, system.modes)))
-        alpha_i += w * ((1 - system.input_transmission**2) * s / 2)**0.5
-        beta_i = alpha_i.conj()
+    t = system.transmission
+    n = numpy.sinh(system.squeezing)**2 * t
+    m = (1 - system.decoherence) * numpy.cosh(system.squeezing) * numpy.sinh(system.squeezing) * t
+    nmax = system.inputs
 
-    return State(system, representation, alpha_i, beta_i)
+    if representation != Representation.POSITIVE_P:
+        nmax = system.modes
+        n = numpy.concatenate([n, numpy.zeros(system.modes - system.inputs)])
+        m = numpy.concatenate([m, numpy.zeros(system.modes - system.inputs)])
+
+    # Converting to complex numbers because `n-m+s` can sometimes be < 0
+    x = (0.5*(n + m + s).astype(numpy.complex128))**0.5 * rng.normal(size=(samples, nmax))
+    y = (0.5*(n - m + s).astype(numpy.complex128))**0.5 * rng.normal(size=(samples, nmax))
+    alpha[:,:nmax] = x + 1j * y
+    beta[:,:nmax] = x - 1j * y
+
+    return State(system, representation, alpha, beta)
 
 
 def apply_matrix(input_state, seed):
@@ -90,15 +44,18 @@ def apply_matrix(input_state, seed):
     alpha_i = input_state.alpha
     beta_i = input_state.beta
 
-    # Transposing U to perform batch matrix multiplication
-    alpha = (alpha_i @ system.unitary.transpose()) * system.output_transmission
-    beta = (beta_i @ system.unitary.transpose().conj()) * system.output_transmission
+    # Transposing U to perform batched matrix-vector multiplication
+    alpha = (alpha_i @ system.unitary.transpose())
+    beta = (beta_i @ system.unitary.transpose().conj())
 
-    if (system.output_transmission != 1).any() and s != 0:
+    E = numpy.eye(system.modes) - system.unitary @ system.unitary.transpose().conj()
+    if representation != Representation.POSITIVE_P and system.needs_noise_matrix():
+        noise_matrix = system.noise_matrix()
         w = (
-            rng.normal(size=(input_state.samples, system.modes))
-            + 1j * rng.normal(size=(input_state.samples, system.modes)))
-        alpha += w * ((1 - system.output_transmission**2) * s / 2)**0.5
+            numpy.random.normal(size=(input_state.samples, system.modes))
+            + 1j * numpy.random.normal(size=(input_state.samples, system.modes)))
+        # transposing the noise matrix to perform batched matrix-vector multiplication
+        alpha += w @ noise_matrix.transpose()
         beta = alpha.conj()
 
     return State(system, representation, alpha, beta)

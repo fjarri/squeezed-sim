@@ -3,6 +3,7 @@ import numpy
 from reikna import helpers
 import reikna.cluda.functions as functions
 from reikna.core import Computation, Parameter, Type, Annotation, Transformation
+from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import philox
 from reikna.cbrng.tools import KeyGenerator
 from reikna.cbrng.samplers import normal_bm
@@ -41,12 +42,12 @@ class GenerateInputState(Computation):
         sampler = normal_bm(bijection, numpy.float64)
 
         squeezing = plan.persistent_array(self._system.squeezing)
-        thermal_noise = plan.persistent_array(self._system.thermal_noise)
-        input_transmission = plan.persistent_array(self._system.input_transmission)
+        decoherence = plan.persistent_array(self._system.decoherence)
+        transmission = plan.persistent_array(self._system.transmission)
 
         plan.kernel_call(
             TEMPLATE.get_def("generate_input_state"),
-            [alpha, beta, squeezing, thermal_noise, input_transmission, seed],
+            [alpha, beta, squeezing, decoherence, transmission, seed],
             kernel_name="generate",
             global_size=alpha.shape,
             render_kwds=dict(
@@ -56,8 +57,8 @@ class GenerateInputState(Computation):
                 bijection=bijection,
                 keygen=keygen,
                 sampler=sampler,
-                apply_transmission_coeffs=(self._system.input_transmission != 1).any(),
                 ordering=ordering,
+                exp=functions.exp(numpy.float64),
                 mul_cr=functions.mul(numpy.complex128, numpy.float64),
                 add_cc=functions.add(numpy.complex128, numpy.complex128),
                 ))
@@ -107,110 +108,76 @@ class ApplyMatrix(Computation):
             """,
             render_kwds=dict(conj=functions.conj(self._system.unitary.dtype)))
 
-    def _make_trf_transmission(self, state, conj_noise=False):
-
-        bijection = philox(64, 2)
-
-        # Keeping the kernel the same so it can be cached.
-        # The seed will be passed as the computation parameter instead.
-        keygen = KeyGenerator.create(bijection, seed=numpy.int32(0))
-
-        sampler = normal_bm(bijection, numpy.float64)
-
-        return Transformation([
-            Parameter('output', Annotation(state, 'o')),
-            Parameter('input', Annotation(state, 'i')),
-            Parameter('transmission', Annotation(self._system.output_transmission, 'i')),
-            Parameter('seed', Annotation(numpy.int32)),
-            ],
-            """
-            ${input.ctype} val = ${input.load_same};
-
-            %if apply_transmission_coeffs:
-
-                <%
-                    real = dtypes.ctype(dtypes.real_for(input.dtype))
-                    comp = input.ctype
-
-                    s = ordering(representation)
-                %>
-
-                VSIZE_T sample_idx = ${idxs[0]};
-                VSIZE_T mode_idx = ${idxs[1]};
-                ${transmission.ctype} otr = ${transmission.load_idx}(mode_idx);
-                val = ${mul_cr}(val, otr);
-
-                %if s != 0:
-
-                    VSIZE_T flat_idx = ${idxs[1]} + ${idxs[0]} * ${input.shape[1]};
-                    ${bijection.module}Key key = ${keygen.module}key_from_int(flat_idx);
-                    ${bijection.module}Counter ctr = ${bijection.module}make_counter_from_int(${seed});
-                    ${bijection.module}State st = ${bijection.module}make_state(key, ctr);
-
-                    ${sampler.module}Result w = ${sampler.module}sample(&st);
-
-                    ${real} coeff = sqrt((1 - otr * otr) * ${s / 2});
-                    ${real} w_re = w.v[0] * coeff;
-                    ${real} w_im = w.v[1] * coeff;
-
-                    %if conj_noise:
-                    w_im = -w_im;
-                    %endif
-
-                    val = ${add_cc}(val, COMPLEX_CTR(${comp})(w_re, w_im));
-                %endif
-
-            %endif
-
-            ${output.store_same}(val);
-            """,
-            #TEMPLATE.get_def("output_transmission_transformation"),
-            render_kwds=dict(
-                system=self._system,
-                representation=self._representation,
-                Representation=Representation,
-                bijection=bijection,
-                keygen=keygen,
-                sampler=sampler,
-                apply_transmission_coeffs=(self._system.output_transmission != 1).any(),
-                ordering=ordering,
-                mul_cr=functions.mul(numpy.complex128, numpy.float64),
-                add_cc=functions.add(numpy.complex128, numpy.complex128),
-                conj_noise=conj_noise,
-                ))
-
     def _build_plan(self, plan_factory, device_params, alpha, beta, alpha_i, beta_i, seed):
         plan = plan_factory()
 
-        output_transmission = plan.persistent_array(self._system.output_transmission)
+        system = self._system
+        representation = self._representation
+
         unitary = plan.persistent_array(self._system.unitary)
 
-        mmul_alpha = MatrixMul(alpha, unitary, transposed_b=True)
+        needs_noise_matrix = representation != Representation.POSITIVE_P and system.needs_noise_matrix()
 
-        # Apply output transmission (possibly with noise)
-        trf_transmission = self._make_trf_transmission(alpha, conj_noise=False)
-        mmul_alpha.parameter.output.connect(
-            trf_transmission, trf_transmission.input,
-            output_p=trf_transmission.output,
-            transmission=trf_transmission.transmission,
-            seed=trf_transmission.seed)
+        mmul = MatrixMul(alpha, unitary, transposed_b=True)
 
-        mmul_beta = MatrixMul(alpha, unitary, transposed_b=True)
+        if not needs_noise_matrix:
 
-        # Conjugate the unitary before multiplication
-        trf_conj = self._make_trf_conj()
-        mmul_beta.parameter.matrix_b.connect(trf_conj, trf_conj.output, matrix_b_p=trf_conj.input)
+            # TODO: this could be sped up for repr != POSITIVE_P,
+            # since in that case alpha == conj(beta), and we don't need to do two multuplications.
 
-        # Apply output transmission (possibly with noise)
-        trf_transmission = self._make_trf_transmission(beta, conj_noise=True)
-        mmul_beta.parameter.output.connect(
-            trf_transmission, trf_transmission.input,
-            output_p=trf_transmission.output,
-            transmission=trf_transmission.transmission,
-            seed=trf_transmission.seed)
+            mmul_beta = MatrixMul(beta, unitary, transposed_b=True)
+            trf_conj = self._make_trf_conj()
+            mmul_beta.parameter.matrix_b.connect(trf_conj, trf_conj.output, matrix_b_p=trf_conj.input)
 
-        plan.computation_call(mmul_alpha, alpha, output_transmission, seed, alpha_i, unitary)
-        plan.computation_call(mmul_beta, beta, output_transmission, seed, beta_i, unitary)
+            plan.computation_call(mmul, alpha, alpha_i, unitary)
+            plan.computation_call(mmul_beta, beta, beta_i, unitary)
+
+        else:
+
+            noise_matrix = system.noise_matrix()
+            noise_matrix_dev = plan.persistent_array(noise_matrix)
+
+            # If we're here, it's not positive-P, and alpha == conj(beta).
+            # This means we can just calculate alpha, and then build beta from it.
+
+            w = plan.temp_array_like(alpha)
+            temp_alpha = plan.temp_array_like(alpha)
+
+            plan.computation_call(mmul, temp_alpha, alpha_i, unitary)
+
+            bijection = philox(64, 2)
+
+            # Keeping the kernel the same so it can be cached.
+            # The seed will be passed as the computation parameter instead.
+            keygen = KeyGenerator.create(bijection, seed=numpy.int32(0))
+
+            sampler = normal_bm(bijection, numpy.float64)
+
+            plan.kernel_call(
+                TEMPLATE.get_def("generate_apply_matrix_noise"),
+                [w, seed],
+                kernel_name="generate_apply_matrix_noise",
+                global_size=alpha.shape,
+                render_kwds=dict(
+                    bijection=bijection,
+                    keygen=keygen,
+                    sampler=sampler,
+                    mul_cr=functions.mul(numpy.complex128, numpy.float64),
+                    add_cc=functions.add(numpy.complex128, numpy.complex128),
+                    ))
+
+            noise = plan.temp_array_like(alpha)
+            plan.computation_call(mmul, noise, w, noise_matrix_dev)
+
+            plan.kernel_call(
+                TEMPLATE.get_def("add_noise"),
+                [alpha, beta, temp_alpha, noise],
+                kernel_name="add_noise",
+                global_size=alpha.shape,
+                render_kwds=dict(
+                    add=functions.add(numpy.complex128, numpy.complex128),
+                    conj=functions.conj(numpy.complex128)
+                    ))
 
         return plan
 

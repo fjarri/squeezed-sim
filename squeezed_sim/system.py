@@ -1,5 +1,7 @@
-import numpy
 import enum
+
+import numpy
+from scipy.linalg import schur, sqrtm
 
 
 class Representation(enum.Enum):
@@ -24,8 +26,8 @@ class System:
     def __init__(
             self,
             unitary=None,
-            input_transmission=1,
-            output_transmission=1,
+            transmission=1,
+            decoherence=0,
             squeezing=0,
             thermal_noise=0,
             inputs=None):
@@ -44,17 +46,17 @@ class System:
         else:
             self.inputs = self.modes
 
-        if isinstance(input_transmission, numpy.ndarray):
-            assert input_transmission.shape == (self.modes,)
+        if isinstance(decoherence, numpy.ndarray):
+            assert decoherence.shape == (self.inputs,)
         else:
-            input_transmission = numpy.ones(self.modes) * input_transmission
-        self.input_transmission = input_transmission.astype(real_dtype)
+            decoherence = numpy.ones(self.inputs) * decoherence
+        self.decoherence = decoherence.astype(real_dtype)
 
-        if isinstance(output_transmission, numpy.ndarray):
-            assert output_transmission.shape == (self.modes,)
+        if isinstance(transmission, numpy.ndarray):
+            assert transmission.shape == (self.inputs,)
         else:
-            output_transmission = numpy.ones(self.modes) * output_transmission
-        self.output_transmission = output_transmission.astype(real_dtype)
+            transmission = numpy.ones(self.inputs) * transmission
+        self.transmission = transmission.astype(real_dtype)
 
         if isinstance(squeezing, numpy.ndarray):
             assert squeezing.shape == (self.inputs,)
@@ -67,6 +69,33 @@ class System:
         else:
             thermal_noise = numpy.ones(self.inputs) * thermal_noise
         self.thermal_noise = thermal_noise.astype(real_dtype)
+
+        # A two-step process, since the noise matrix is expensive to calculate,
+        # and is only needed for non-positive-P representations,
+        # which we rarely use.
+        self._needs_noise_matrix = None
+        self._diff_matrix = None
+        self._noise_matrix = None
+
+    def needs_noise_matrix(self):
+        if self._needs_noise_matrix is None:
+            diff = numpy.eye(self.modes) - self.unitary @ self.unitary.transpose().conj()
+            self._needs_noise_matrix = numpy.allclose(numpy.linalg.norm(diff), 0)
+            # so that we don't have to re-calculate it
+            if self._needs_noise_matrix:
+                self._diff_matrix = diff
+
+        return self._needs_noise_matrix
+
+    def noise_matrix(self):
+        if self._noise_matrix is None:
+            if not self.needs_noise_matrix():
+                return None
+
+            U, T = schur(self._diff_matrix)
+            self._noise_matrix = U @ sqrtm(T) * U.transpose().conj()
+
+        return self._noise_matrix
 
 
 class State:

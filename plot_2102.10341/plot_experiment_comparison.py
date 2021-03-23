@@ -11,14 +11,12 @@ def plot_experiment(api_id='ocl', device_num=0):
 
     ensembles = 120
     samples_per_ensemble = 10000
-    dc = 0.12
 
     system = System(
         unitary=transmission_matrix(),
         inputs=50,
         squeezing=squeezing_coefficients(),
-        input_transmission=1 / (1 + dc)**0.5,
-        thermal_noise=dc * numpy.sinh(squeezing_coefficients())**2,
+        decoherence=0.1,
         )
 
     merged_result_set = simulate_sequential(

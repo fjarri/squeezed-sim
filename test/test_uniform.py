@@ -18,18 +18,15 @@ def random_unitary(n, seed=None):
 
 def add_reference_uniform(system, merged_result_set):
 
-    p1 = 1 - 1 / numpy.cosh(system.squeezing) / (1 + system.thermal_noise) # click probability
-    n1 = numpy.sinh(system.squeezing)**2 + system.thermal_noise # population
-
     modes = system.modes
 
-    n = numpy.empty(modes)
-    n[:system.inputs] = n1
-    n[system.inputs:] = 0
+    t = system.transmission
+    n = numpy.sinh(system.squeezing)**2 * t
+    m = (1 - system.decoherence) * numpy.cosh(system.squeezing) * numpy.sinh(system.squeezing) * t
+    p = 1 - (1 / ((n+1)**2 - m**2))**0.5
 
-    p = numpy.empty(modes)
-    p[:system.inputs] = p1
-    p[system.inputs:] = 0
+    n = numpy.concatenate([n, numpy.zeros(system.modes - system.inputs)])
+    p = numpy.concatenate([p, numpy.zeros(system.modes - system.inputs)])
 
     countprob = nchooseft(p.reshape(1, p.size), up_to_mode=system.inputs)
     countprob = numpy.concatenate([countprob[0], numpy.zeros(modes - system.inputs, countprob.dtype)])
@@ -73,7 +70,8 @@ def test_thermal(api_id='ocl', device_num=None):
 
     system = System(
         unitary=random_unitary(40),
-        thermal_noise=2,
+        decoherence=1,
+        squeezing=1,
         )
 
     for device_num in (None,) + ((device_num,) if device_num is not None else ()):
@@ -98,7 +96,7 @@ def test_thermal(api_id='ocl', device_num=None):
         plot_results(
             merged_result_set,
             tags=dict(
-                population={'lin'},
+                population={'lin', 'errors'},
                 moments={'log', 'errors'},
                 click_probability={'lin', 'errors'},
                 clicks={'log', 'errors'},
@@ -117,6 +115,8 @@ def test_squeezed(api_id='ocl', device_num=None):
         unitary=numpy.eye(20),
         inputs=10,
         squeezing=2,
+        transmission=0.5,
+        decoherence=0.1,
         )
 
     for device_num in (None,) + ((device_num,) if device_num is not None else ()):
@@ -141,7 +141,7 @@ def test_squeezed(api_id='ocl', device_num=None):
         plot_results(
             merged_result_set,
             tags=dict(
-                population={'lin'},
+                population={'lin', 'errors'},
                 moments={'log', 'errors'},
                 click_probability={'lin', 'errors'},
                 clicks={'log', 'errors'},
