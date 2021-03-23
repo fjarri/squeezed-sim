@@ -31,16 +31,12 @@ def prepare_unitary(parameter_set, results_dir):
 
     if Path(fname).exists():
         unitary = numpy.load(fname)
-        #with open(fname, 'rb') as f:
-        #    unitary = pickle.load(f)
 
     else:
         print(f"Preparing unitary in {fname}...")
         unitary = random_unitary(parameter_set['modes'], seed=parameter_set['seed'])
         print("    done.")
         numpy.save(fname, unitary)
-        #with open(fname, 'wb') as f:
-        #    pickle.dump(unitary, f)
 
     return unitary
 
