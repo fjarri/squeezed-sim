@@ -87,8 +87,8 @@ class Population(PrepareGPUMixin):
         return Result.from_samples(
             numpy.arange(1, values.shape[1] + 1),
             values,
-            x_label='mode m',
-            y_label='<n_{i}(m)>',
+            x_label='mode $m$',
+            y_label='$<n(m)>$',
             )
 
 
@@ -111,7 +111,7 @@ class Moments(PrepareGPUMixin):
         return Result.from_samples(
             numpy.arange(1, self.max_moment + 1),
             values,
-            x_label='order o',
+            x_label='order $o$',
             y_label='<moment>',
             )
 
@@ -135,8 +135,8 @@ class ClickProbability(PrepareGPUMixin):
         return Result.from_samples(
             numpy.arange(1, values.shape[1] + 1),
             values,
-            x_label='mode m',
-            y_label='<p(m)>',
+            x_label='mode $m$',
+            y_label='$<p(m)>$',
             )
 
 
@@ -166,8 +166,8 @@ class Clicks(PrepareGPUMixin):
         return Result.from_samples(
             numpy.arange(1, self.max_click_order + 1),
             values,
-            x_label='Clicks n',
-            y_label='T(n)',
+            x_label='Clicks $n$',
+            y_label='$T(n)$',
             )
 
 
@@ -197,8 +197,8 @@ class ZeroClicks(PrepareGPUMixin):
         return Result.from_samples(
             numpy.arange(1, self.max_click_order + 1),
             values,
-            x_label='clicks n',
-            y_label='T(n|0)',
+            x_label='clicks $n$',
+            y_label='$T(n|0)$',
             )
 
 
@@ -267,6 +267,6 @@ class CompoundClickProbability(PrepareGPUMixin):
         return Result.from_samples(
             numpy.arange(0, self.max_total_clicks + 1),
             values,
-            x_label='clicks n',
-            y_label='P(n)',
+            x_label='clicks $n$',
+            y_label='$P(n)$',
             )
