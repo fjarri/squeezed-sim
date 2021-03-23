@@ -1,11 +1,13 @@
+from pathlib import Path
+
 import numpy
-from sq import *
 
-import mplhelpers as mplh
-from test_experiment import transmission_matrix, squeezing_coefficients, add_reference_experiment
+from squeezed_sim import *
+from squeezed_sim.experiment import *
+import squeezed_sim.utils.mplhelpers as mplh
 
 
-def plot_experiment():
+def plot_experiment(api_id='ocl', device_num=0):
 
     ensembles = 120
     samples_per_ensemble = 10000
@@ -26,7 +28,9 @@ def plot_experiment():
         measurements=dict(
             click_probability=Measure(ClickProbability(), stages={'out'}, representations={Representation.POSITIVE_P}),
             compound_click_probability=Measure(CompoundClickProbability(100), stages={'out'}, representations={Representation.POSITIVE_P})
-            ))
+            ),
+        api_id=api_id,
+        device_num=device_num)
 
     add_reference_experiment(system, merged_result_set)
 
@@ -44,7 +48,7 @@ def plot_experiment():
     sp.set_ylabel('$\\langle \\pi_j(1) \\rangle$')
 
     fig.tight_layout(pad=0.1)
-    fig.savefig(f"experimental_comparison_clicks.pdf")
+    fig.savefig(str(Path('figures') / "experimental_comparison_clicks.pdf"))
     mplh.close(fig)
 
 
@@ -64,9 +68,13 @@ def plot_experiment():
     sp.set_ylabel('$\\mathcal{P}(m)$')
 
     fig.tight_layout(pad=0.1)
-    fig.savefig(f"experimental_comparison_compound.pdf")
+    fig.savefig(str(Path('figures') / "experimental_comparison_compound.pdf"))
     mplh.close(fig)
 
 
 if __name__ == '__main__':
-    plot_experiment()
+
+    figures_dir = Path('figures')
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    plot_experiment(api_id='ocl', device_num=2)

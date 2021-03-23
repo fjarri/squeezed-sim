@@ -1,17 +1,17 @@
+from itertools import combinations
 import os
+from pathlib import Path
 import pickle
+
 from tqdm import tqdm
 import numpy
-import mplhelpers as mplh
-from itertools import combinations
 
 from thewalrus import tor
 from thewalrus.symplectic import interferometer
 from thewalrus.quantum import Qmat, Amat, Xmat
 
-from cached import cached
-
-from sq import *
+import squeezed_sim.utils.mplhelpers as mplh
+from squeezed_sim import *
 
 
 def random_unitary(n, seed=None):
@@ -67,7 +67,7 @@ def reference_max_count(system):
     return c * n
 
 
-def plot_varying_inputs():
+def plot_varying_inputs(api_id='ocl', device_num=0):
 
     ensembles = 12
     samples_per_ensemble = 100000
@@ -80,7 +80,6 @@ def plot_varying_inputs():
     reference_values = []
 
     for inputs in input_values:
-        print(inputs)
         system = System(
             unitary=unitary,
             inputs=inputs,
@@ -96,7 +95,8 @@ def plot_varying_inputs():
                     CompoundClickProbability(system.modes),
                     stages={'out'}, representations={Representation.POSITIVE_P})
                 ),
-            gpu_id=2)
+            api_id=api_id,
+            device_num=device_num)
 
         result = merged_result_set.results[('compound_click_probability', 'out', Representation.POSITIVE_P)]
 
@@ -124,7 +124,7 @@ def plot_varying_inputs():
     sp.legend()
 
     fig.tight_layout(pad=0.1)
-    fig.savefig('torontonian_varying_inputs_lin.pdf')
+    fig.savefig('figures/torontonian/torontonian_varying_inputs_lin.pdf')
 
 
     fig = mplh.figure()
@@ -145,12 +145,12 @@ def plot_varying_inputs():
     sp.legend()
 
     fig.tight_layout(pad=0.1)
-    fig.savefig('torontonian_varying_inputs_log.pdf')
+    fig.savefig('figures/torontonian/torontonian_varying_inputs_log.pdf')
 
 
 def reference_varying_counts(system):
 
-    fname = 'reference_varying_counts.pickle'
+    fname = 'cache_torontonian/reference_varying_counts.pickle'
     if os.path.exists(fname):
         with open(fname, 'rb') as f:
             return pickle.load(f)
@@ -170,7 +170,7 @@ def reference_varying_counts(system):
     return result_ref
 
 
-def plot_varying_counts():
+def plot_varying_counts(api_id='ocl', device_num=0):
 
     ensembles = 100
     samples_per_ensemble = 200000
@@ -193,7 +193,8 @@ def plot_varying_counts():
                 CompoundClickProbability(system.modes),
                 stages={'out'}, representations={Representation.POSITIVE_P})
             ),
-        gpu_id=2)
+        api_id=api_id,
+        device_num=device_num)
 
     result = merged_result_set.results[('compound_click_probability', 'out', Representation.POSITIVE_P)]
 
@@ -214,7 +215,7 @@ def plot_varying_counts():
     sp.legend()
 
     fig.tight_layout(pad=0.1)
-    fig.savefig('torontonian_varying_counts_lin.pdf')
+    fig.savefig('figures/torontonian/torontonian_varying_counts_lin.pdf')
 
 
     fig = mplh.figure()
@@ -233,7 +234,7 @@ def plot_varying_counts():
     sp.legend()
 
     fig.tight_layout(pad=0.1)
-    fig.savefig('torontonian_varying_counts_log.pdf')
+    fig.savefig('figures/torontonian/torontonian_varying_counts_log.pdf')
 
 
     fig = mplh.figure()
@@ -248,7 +249,7 @@ def plot_varying_counts():
     sp.legend()
 
     fig.tight_layout(pad=0.1)
-    fig.savefig('torontonian_varying_counts_errors_lin.pdf')
+    fig.savefig('figures/torontonian/torontonian_varying_counts_errors_lin.pdf')
 
 
     fig = mplh.figure()
@@ -264,11 +265,16 @@ def plot_varying_counts():
     sp.legend()
 
     fig.tight_layout(pad=0.1)
-    fig.savefig('torontonian_varying_counts_errors_log.pdf')
-
-
+    fig.savefig('figures/torontonian/torontonian_varying_counts_errors_log.pdf')
 
 
 if __name__ == '__main__':
-    #plot_varying_inputs()
-    plot_varying_counts()
+
+    figures_dir = Path('figures/torontonian')
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    figures_dir = Path('cache_torontonian')
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    plot_varying_inputs(api_id='ocl', device_num=2)
+    plot_varying_counts(api_id='ocl', device_num=2)

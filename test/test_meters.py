@@ -1,19 +1,18 @@
 import numpy
 
-from reikna.cluda import ocl_api
+from reikna.cluda import get_api
 
-from sq import *
-from sq.system import State
+from squeezed_sim import *
 
 
-def make_thread():
-    api = ocl_api()
-    device = api.get_platforms()[0].get_devices()[2]
+def make_thread(api_id, device_num):
+    api = get_api(api_id)
+    device = api.get_platforms()[0].get_devices()[device_num]
     thread = api.Thread(device)
     return thread
 
 
-def test_meter(meter, system, samples):
+def test_meter(meter, system, samples, api_id='ocl', device_num=0):
 
     representation = Representation.POSITIVE_P
 
@@ -23,7 +22,7 @@ def test_meter(meter, system, samples):
     state = State(system, representation, alpha, beta)
     result_cpu = meter(state)
 
-    thread = make_thread()
+    thread = make_thread(api_id, device_num)
 
     alpha_dev = thread.to_device(alpha)
     beta_dev = thread.to_device(beta)
@@ -40,7 +39,7 @@ def test_meter(meter, system, samples):
         print(f"{meter} passed")
 
 
-def test_meters():
+def test_meters(api_id='ocl', device_num=0):
 
     modes = 50
     samples = 10000
@@ -55,12 +54,14 @@ def test_meters():
     ]
 
     for meter in meters:
-        test_meter(meter, system, samples)
+        test_meter(meter, system, samples, api_id=api_id, device_num=device_num)
 
     # More tests for CompoundClickProbability to check the adaptive GPU algorithm
     for modes in (10, 20, 50, 64, 100, 128, 200, 500, 1000):
-        test_meter(CompoundClickProbability(modes), System(unitary=numpy.eye(modes)), 10)
+        test_meter(
+            CompoundClickProbability(modes), System(unitary=numpy.eye(modes)), 10,
+            api_id=api_id, device_num=device_num)
 
 
 if __name__ == '__main__':
-    test_meters()
+    test_meters(api_id='ocl', device_num=2)

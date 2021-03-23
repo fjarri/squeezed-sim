@@ -1,6 +1,6 @@
 import numpy
 
-from sq import *
+from squeezed_sim import *
 
 
 def random_unitary(n, seed=None):
@@ -66,7 +66,7 @@ def add_reference_uniform(system, merged_result_set):
             merged_result_set.results[key] = result.with_reference(countprob)
 
 
-def test_thermal():
+def test_thermal(api_id='ocl', device_num=None):
 
     ensembles = 12
     samples_per_ensemble = 10000
@@ -76,7 +76,7 @@ def test_thermal():
         thermal_noise=2,
         )
 
-    for gpu_id in (None, 2,):
+    for device_num in (None,) + ((device_num,) if device_num is not None else ()):
 
         merged_result_set = simulate_sequential(
             system=system,
@@ -90,7 +90,8 @@ def test_thermal():
                 zero_clicks=Measure(ZeroClicks(5), stages={'out'}, representations={Representation.POSITIVE_P}),
                 compound_click_probability=Measure(CompoundClickProbability(40), stages={'out'}, representations={Representation.POSITIVE_P})
             ),
-            gpu_id=gpu_id)
+            api_id=api_id,
+            device_num=device_num)
 
         add_reference_uniform(system, merged_result_set)
 
@@ -104,10 +105,10 @@ def test_thermal():
                 zero_clicks={'log', 'errors'},
                 compound_click_probability={'lin', 'log', 'errors'}
             ),
-            path="figures/thermal_" + ('cpu' if gpu_id is None else 'gpu'))
+            path="figures/thermal_" + ('cpu' if device_num is None else 'gpu'))
 
 
-def test_squeezed():
+def test_squeezed(api_id='ocl', device_num=None):
 
     ensembles = 12
     samples_per_ensemble = 10000
@@ -118,7 +119,7 @@ def test_squeezed():
         squeezing=2,
         )
 
-    for gpu_id in (None, 2,):
+    for device_num in (None,) + ((device_num,) if device_num is not None else ()):
 
         merged_result_set = simulate_sequential(
             system=system,
@@ -132,7 +133,8 @@ def test_squeezed():
                 zero_clicks=Measure(ZeroClicks(5), stages={'out'}, representations={Representation.POSITIVE_P}),
                 compound_click_probability=Measure(CompoundClickProbability(20), stages={'out'}, representations={Representation.POSITIVE_P})
                 ),
-            gpu_id=gpu_id)
+            api_id=api_id,
+            device_num=device_num)
 
         add_reference_uniform(system, merged_result_set)
 
@@ -146,9 +148,9 @@ def test_squeezed():
                 zero_clicks={'log', 'errors'},
                 compound_click_probability={'lin', 'log', 'errors'}
             ),
-            path="figures/squeezed_" + ('cpu' if gpu_id is None else 'gpu'))
+            path="figures/squeezed_" + ('cpu' if device_num is None else 'gpu'))
 
 
 if __name__ == '__main__':
-    test_thermal()
-    test_squeezed()
+    test_thermal(api_id='ocl', device_num=2)
+    test_squeezed(api_id='ocl', device_num=2)

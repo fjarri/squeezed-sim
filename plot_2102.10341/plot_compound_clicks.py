@@ -1,12 +1,12 @@
 from pathlib import Path
 import pickle
-import mplhelpers as mplh
 
 import numpy
 
-from sq import *
-from sq.simulate_large_scale import simulate_mp
-from sq.simulate import ResultSet
+from squeezed_sim import *
+from squeezed_sim.simulate_large_scale import simulate_mp
+from squeezed_sim.simulate import ResultSet
+import squeezed_sim.utils.mplhelpers as mplh
 
 
 def random_unitary(n, seed=None):
@@ -45,7 +45,7 @@ def prepare_unitary(parameter_set, results_dir):
     return unitary
 
 
-def run_simulation(parameter_set, results_dir):
+def run_simulation(parameter_set, results_dir, api_id='ocl', gpu_name_filters=[]):
 
     modes = parameter_set['modes']
     ensembles = parameter_set['ensembles']
@@ -79,14 +79,14 @@ def run_simulation(parameter_set, results_dir):
                 CompoundClickProbability(modes),
                 stages={'out'}, representations={Representation.POSITIVE_P})
             ),
-        seed=seed)
+        seed=seed,
+        api_id=api_id,
+        gpu_name_filters=gpu_name_filters)
 
     return merged_result_set
 
 
-def run():
-
-    results_dir = 'compound_click_probability'
+def run(results_dir, api_id='ocl', gpu_name_filters=[]):
 
     parameter_sets = [
         dict(modes=16, ensembles=100, samples_per_ensemble=1000000, seed=123),
@@ -102,7 +102,6 @@ def run():
         dict(modes=16384, ensembles=100, samples_per_ensemble=20, seed=123),
     ]
 
-    results_dir = "compound_clicks_results"
     Path(results_dir).mkdir(parents=True, exist_ok=True)
 
     width = 1 # 1 column
@@ -113,7 +112,7 @@ def run():
 
     merged_result_sets = []
     for parameter_set in parameter_sets:
-        merged_result_set = run_simulation(parameter_set, results_dir)
+        merged_result_set = run_simulation(parameter_set, results_dir, api_id=api_id, gpu_name_filters=gpu_name_filters)
         merged_result_sets.append(merged_result_set)
 
 
@@ -151,9 +150,13 @@ def run():
     sp.set_ylabel('$M \\mathcal{P}_M(m)$')
 
     fig.tight_layout(pad=0.1)
-    fig.savefig(f"compound_click_probability_log.pdf")
+    fig.savefig(str(Path('figures') / "compound_click_probability_log.pdf"))
     mplh.close(fig)
 
 
 if __name__ == '__main__':
-    run()
+
+    figures_dir = Path('figures')
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    run("compound_clicks_cache", api_id='ocl', gpu_name_filters=['Vega'])

@@ -1,22 +1,22 @@
 import time
+import sys
 
 import numpy
 
-from reikna.cluda import ocl_api
+from reikna.cluda import get_api
 
-from sq import *
-from sq.system import State
-from sq import generate_gpu, generate_cpu
+from squeezed_sim import *
+from squeezed_sim import generate_gpu, generate_cpu
 
 
-def make_thread():
-    api = ocl_api()
-    device = api.get_platforms()[0].get_devices()[2]
+def make_thread(api_id, device_num):
+    api = get_api(api_id)
+    device = api.get_platforms()[0].get_devices()[device_num]
     thread = api.Thread(device)
     return thread
 
 
-def test_meter(meter, system, samples, test_cpu=False):
+def test_meter(meter, system, samples, test_cpu=False, api_id='ocl', device_num=0):
 
     representation = Representation.POSITIVE_P
 
@@ -29,7 +29,7 @@ def test_meter(meter, system, samples, test_cpu=False):
         meter(state)
         time_cpu = time.time() - t1
 
-    thread = make_thread()
+    thread = make_thread(api_id, device_num)
 
     alpha_dev = thread.to_device(alpha)
     beta_dev = thread.to_device(beta)
@@ -49,7 +49,7 @@ def test_meter(meter, system, samples, test_cpu=False):
         print(f"    cpu: {time_cpu}")
 
 
-def test_meters(modes, samples, test_cpu=False):
+def test_meters(modes, samples, test_cpu=False, api_id='ocl', device_num=0):
 
     system = System(unitary=numpy.eye(modes))
 
@@ -63,10 +63,10 @@ def test_meters(modes, samples, test_cpu=False):
     ]
 
     for meter in meters:
-        test_meter(meter, system, samples, test_cpu=test_cpu)
+        test_meter(meter, system, samples, test_cpu=test_cpu, api_id=api_id, device_num=device_num)
 
 
-def test_generate_initial_state(modes, samples, test_cpu=False):
+def test_generate_initial_state(modes, samples, test_cpu=False, api_id='ocl', device_num=0):
 
     system = System(unitary=numpy.eye(modes))
     representation = Representation.POSITIVE_P
@@ -77,7 +77,7 @@ def test_generate_initial_state(modes, samples, test_cpu=False):
         generate_cpu.generate_input_state(system, representation, samples, seed)
         time_cpu = time.time() - t1
 
-    thread = make_thread()
+    thread = make_thread(api_id, device_num)
 
     generate_input_state = generate_gpu.prepare_generate_input_state(thread, system, representation, samples)
 
@@ -91,7 +91,7 @@ def test_generate_initial_state(modes, samples, test_cpu=False):
         print(f"    cpu: {time_cpu}")
 
 
-def test_apply_matrix(modes, samples, test_cpu=False):
+def test_apply_matrix(modes, samples, test_cpu=False, api_id='ocl', device_num=0):
 
     system = System(unitary=numpy.ones((modes, modes)))
     representation = Representation.POSITIVE_P
@@ -106,7 +106,7 @@ def test_apply_matrix(modes, samples, test_cpu=False):
         generate_cpu.apply_matrix(state, seed)
         time_cpu = time.time() - t1
 
-    thread = make_thread()
+    thread = make_thread(api_id, device_num)
 
     alpha_dev = thread.to_device(alpha)
     beta_dev = thread.to_device(beta)
@@ -125,8 +125,11 @@ def test_apply_matrix(modes, samples, test_cpu=False):
 
 
 if __name__ == '__main__':
-    modes = 400
+    API_ID = 'ocl' # or 'cuda'
+    DEVICE_NUM = 2
+
+    modes = 40
     samples = 100000
-    test_meters(modes, samples)
-    test_generate_initial_state(modes, samples)
-    test_apply_matrix(modes, samples)
+    test_meters(modes, samples, test_cpu=True, api_id=API_NAME, device_num=DEVICE_NUM)
+    test_generate_initial_state(modes, samples, test_cpu=True, api_id=API_NAME, device_num=DEVICE_NUM)
+    test_apply_matrix(modes, samples, test_cpu=True, api_id=API_NAME, device_num=DEVICE_NUM)

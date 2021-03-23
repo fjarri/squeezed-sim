@@ -1,67 +1,10 @@
-import csv
-
 import numpy
-from scipy.io import loadmat
 
-from sq import *
-
-
-def transmission_matrix():
-
-    re = []
-    with open('experimental_data/matrix_re.csv') as csvfile:
-        r = csv.reader(csvfile, delimiter=',')
-        for row in r:
-            re.append([float(x) for x in row])
-    re = numpy.array(re)
-
-    im = []
-    with open('experimental_data/matrix_im.csv') as csvfile:
-        r = csv.reader(csvfile, delimiter=',')
-        for row in r:
-            im.append([float(x) for x in row])
-    im = numpy.array(im)
-
-    U = re + 1j * im
-
-    if U.shape[0] < U.shape[1]:
-        U = numpy.concatenate([U, numpy.zeros((U.shape[1] - U.shape[0], U.shape[1]))], axis=0)
-
-    return U.transpose()
+from squeezed_sim import *
+from squeezed_sim.experiment import *
 
 
-def squeezing_coefficients():
-
-    res = []
-    with open('experimental_data/squeezing_parametersq.csv') as csvfile:
-        r = csv.reader(csvfile, delimiter=',')
-        for row in r:
-            for x in row:
-                res.append(float(x))
-
-    res = numpy.array(res)
-
-    return res
-
-
-def add_reference_experiment(system, merged_result_set):
-    res = loadmat('experimental_data/exp_cp.mat')
-
-    for key, result in merged_result_set.results.items():
-
-        label, stage, representation = key
-
-        if label == 'click_probability' and stage == 'out':
-            merged_result_set.results[key] = result.with_reference(res['Cp'][3][0][:,0])
-
-        if label == 'clicks' and stage == 'out':
-            merged_result_set.results[key] = result.with_reference(res['Cp'][4][0][:,0])
-
-        if label == 'compound_click_probability' and stage == 'out':
-            merged_result_set.results[key] = result.with_reference(res['Cp'][6][0][:,0])
-
-
-def test_experiment():
+def test_experiment(api_id='ocl', device_num=None):
 
     ensembles = 120
     samples_per_ensemble = 1000
@@ -72,7 +15,7 @@ def test_experiment():
         squeezing=squeezing_coefficients(),
         )
 
-    for gpu_id in (None, 2,):
+    for device_num in (None,) + ((device_num,) if device_num is not None else ()):
         merged_result_set = simulate_sequential(
             system=system,
             ensembles=ensembles,
@@ -85,7 +28,8 @@ def test_experiment():
                 zero_clicks=Measure(ZeroClicks(5), stages={'out'}, representations={Representation.POSITIVE_P}),
                 compound_click_probability=Measure(CompoundClickProbability(100), stages={'out'}, representations={Representation.POSITIVE_P})
                 ),
-            gpu_id=gpu_id)
+            api_id=api_id,
+            device_num=device_num)
 
         add_reference_experiment(system, merged_result_set)
 
@@ -99,10 +43,10 @@ def test_experiment():
                 zero_clicks={'log', 'errors'},
                 compound_click_probability={'lin', 'log', 'errors'}
             ),
-            path="figures/experiment_" + ('cpu' if gpu_id is None else 'gpu'))
+            path="figures/experiment_" + ('cpu' if device_num is None else 'gpu'))
 
 
-def test_experiment_dc():
+def test_experiment_dc(api_id='ocl', device_num=None):
 
     ensembles = 120
     samples_per_ensemble = 1000
@@ -116,7 +60,7 @@ def test_experiment_dc():
         thermal_noise=dc * numpy.sinh(squeezing_coefficients())**2,
         )
 
-    for gpu_id in (None, 2,):
+    for device_num in (None,) + ((device_num,) if device_num is not None else ()):
         merged_result_set = simulate_sequential(
             system=system,
             ensembles=ensembles,
@@ -129,7 +73,8 @@ def test_experiment_dc():
                 zero_clicks=Measure(ZeroClicks(5), stages={'out'}, representations={Representation.POSITIVE_P}),
                 compound_click_probability=Measure(CompoundClickProbability(100), stages={'out'}, representations={Representation.POSITIVE_P})
                 ),
-            gpu_id=gpu_id)
+            api_id=api_id,
+            device_num=device_num)
 
         add_reference_experiment(system, merged_result_set)
 
@@ -143,9 +88,9 @@ def test_experiment_dc():
                 zero_clicks={'log', 'errors'},
                 compound_click_probability={'lin', 'log', 'errors'}
             ),
-            path="figures/experiment_dc_" + ('cpu' if gpu_id is None else 'gpu'))
+            path="figures/experiment_dc_" + ('cpu' if device_num is None else 'gpu'))
 
 
 if __name__ == '__main__':
-    test_experiment()
-    test_experiment_dc()
+    test_experiment(api_id='ocl', device_num=2)
+    test_experiment_dc(api_id='ocl', device_num=2)

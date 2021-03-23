@@ -3,7 +3,7 @@ from functools import partial
 
 import numpy
 
-from reikna.cluda import ocl_api
+from reikna.cluda import get_api
 
 from .system import Representation
 from .meters_cpu import Result
@@ -63,13 +63,13 @@ def make_seed(rng):
     return rng.randint(0, 2**32-1)
 
 
-def worker_gpu(system, samples, measurements, seed, repetitions=1, gpu_id=0):
+def worker_gpu(system, samples, measurements, seed, repetitions=1, api_id='ocl', device_num=0):
 
     result_set = ResultSet()
     rng = numpy.random.RandomState(seed)
 
-    api = ocl_api()
-    device = api.get_platforms()[0].get_devices()[gpu_id]
+    api = get_api(api_id)
+    device = api.get_platforms()[0].get_devices()[device_num]
     thread = api.Thread(device)
 
     for representation in used_representations(measurements):
@@ -119,14 +119,14 @@ def worker_cpu(system, samples, measurements, seed, repetitions=1):
     return result_set
 
 
-def simulate_sequential(system, ensembles, samples_per_ensemble=1, measurements={}, seed=None, gpu_id=None):
+def simulate_sequential(system, ensembles, samples_per_ensemble=1, measurements={}, seed=None, api_id='ocl', device_num=None):
 
     rng = numpy.random.RandomState(seed)
 
-    if gpu_id is None:
+    if device_num is None:
         worker = worker_cpu
     else:
-        worker = partial(worker_gpu, gpu_id=gpu_id)
+        worker = partial(worker_gpu, api_id=api_id, device_num=device_num)
 
     seed = make_seed(rng)
     result_set = worker(system, samples_per_ensemble, measurements, seed, repetitions=ensembles)

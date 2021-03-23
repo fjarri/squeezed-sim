@@ -6,7 +6,7 @@ from queue import Queue
 
 import numpy
 
-from reikna.cluda import ocl_api
+from reikna.cluda import get_api
 
 from .system import Representation
 from .meters_cpu import Result
@@ -14,10 +14,10 @@ from . import generate_gpu
 from .simulate import make_seed, used_representations, ResultSet
 
 
-def worker_gpu(worker_id, out_queue, in_queue, system, samples, measurements, gpu_id):
+def worker_gpu(worker_id, out_queue, in_queue, system, samples, measurements, api_id, device_num):
 
-    api = ocl_api()
-    device = api.get_platforms()[0].get_devices()[gpu_id]
+    api = get_api(api_id)
+    device = api.get_platforms()[0].get_devices()[device_num]
     thread = api.Thread(device)
 
     prepared_calls = {}
@@ -68,7 +68,7 @@ def worker_gpu(worker_id, out_queue, in_queue, system, samples, measurements, gp
         out_queue.put((worker_id, seed, result_set))
 
 
-def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, seed, gpu_name_filters=[]):
+def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, seed, api_id='ocl', gpu_name_filters=[]):
 
     fname = f"{dirname}/result_sets modes={system.modes} seed={seed}.pickle"
 
@@ -83,19 +83,21 @@ def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, 
     if ensembles <= 0:
         return ResultSet.merge(list(result_sets.values())[:ensembles])
 
-    api = ocl_api()
-    gpu_ids = [
+    api = get_api(api_id)
+    device_nums = [
         device_num for device_num, device in enumerate(api.get_platforms()[0].get_devices())
         if len(gpu_name_filters) == 0 or any(name in device.name for name in gpu_name_filters)]
 
     # Just in case, to make the code below airtight.
-    gpu_ids = gpu_ids[:ensembles]
+    device_nums = device_nums[:ensembles]
 
     result_queue = Queue()
-    command_queues = [Queue() for worker_id in range(len(gpu_ids))]
+    command_queues = [Queue() for worker_id in range(len(device_nums))]
     processes = [
-        Thread(target=worker_gpu, args=(worker_id, result_queue, command_queue, system, samples_per_ensemble, measurements, gpu_id))
-        for worker_id, (command_queue, gpu_id) in enumerate(zip(command_queues, gpu_ids))]
+        Thread(
+            target=worker_gpu,
+            args=(worker_id, result_queue, command_queue, system, samples_per_ensemble, measurements, api_id, device_num))
+        for worker_id, (command_queue, device_num) in enumerate(zip(command_queues, device_nums))]
 
     for process in processes:
         process.start()
@@ -103,13 +105,13 @@ def simulate_mp(dirname, system, ensembles, samples_per_ensemble, measurements, 
     rng = numpy.random.RandomState(seed)
 
     # Initial tasks
-    for worker_id in range(len(gpu_ids)):
+    for worker_id in range(len(device_nums)):
         seed = make_seed(rng)
         while seed in result_sets:
             seed = make_seed(rng)
         command_queues[worker_id].put(seed)
 
-    ensembles_started = len(gpu_ids)
+    ensembles_started = len(device_nums)
     ensembles_finished = 0
     while True:
         worker_id, worker_seed, worker_result_set = result_queue.get()
