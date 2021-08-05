@@ -20,9 +20,8 @@ def add_reference_uniform(system, merged_result_set):
 
     modes = system.modes
 
-    t = system.transmission
-    n = numpy.sinh(system.squeezing)**2 * t
-    m = (1 - system.decoherence) * numpy.cosh(system.squeezing) * numpy.sinh(system.squeezing) * t
+    n = numpy.sinh(system.squeezing)**2
+    m = (1 - system.decoherence) * numpy.cosh(system.squeezing) * numpy.sinh(system.squeezing)
     p = 1 - (1 / ((n+1)**2 - m**2))**0.5
 
     n = numpy.concatenate([n, numpy.zeros(system.modes - system.inputs)])

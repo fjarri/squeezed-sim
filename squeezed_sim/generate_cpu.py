@@ -14,9 +14,8 @@ def generate_input_state(system, representation, samples, seed):
     alpha = numpy.zeros((samples, system.modes), numpy.complex128)
     beta = numpy.zeros((samples, system.modes), numpy.complex128)
 
-    t = system.transmission
-    n = numpy.sinh(system.squeezing)**2 * t
-    m = (1 - system.decoherence) * numpy.cosh(system.squeezing) * numpy.sinh(system.squeezing) * t
+    n = numpy.sinh(system.squeezing)**2
+    m = (1 - system.decoherence) * numpy.cosh(system.squeezing) * numpy.sinh(system.squeezing)
     nmax = system.inputs
 
     if representation != Representation.POSITIVE_P:

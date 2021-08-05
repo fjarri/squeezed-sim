@@ -36,7 +36,7 @@ class System:
         real_dtype = numpy.float64
 
         assert unitary.ndim == 2 and unitary.shape[0] == unitary.shape[1]
-        self.unitary = unitary.astype(complex_dtype)
+        self.unitary = unitary.astype(complex_dtype) * transmission
 
         self.modes = unitary.shape[0]
 
@@ -51,12 +51,6 @@ class System:
         else:
             decoherence = numpy.ones(self.inputs) * decoherence
         self.decoherence = decoherence.astype(real_dtype)
-
-        if isinstance(transmission, numpy.ndarray):
-            assert transmission.shape == (self.inputs,)
-        else:
-            transmission = numpy.ones(self.inputs) * transmission
-        self.transmission = transmission.astype(real_dtype)
 
         if isinstance(squeezing, numpy.ndarray):
             assert squeezing.shape == (self.inputs,)

@@ -43,11 +43,10 @@ class GenerateInputState(Computation):
 
         squeezing = plan.persistent_array(self._system.squeezing)
         decoherence = plan.persistent_array(self._system.decoherence)
-        transmission = plan.persistent_array(self._system.transmission)
 
         plan.kernel_call(
             TEMPLATE.get_def("generate_input_state"),
-            [alpha, beta, squeezing, decoherence, transmission, seed],
+            [alpha, beta, squeezing, decoherence, seed],
             kernel_name="generate",
             global_size=alpha.shape,
             render_kwds=dict(

@@ -1,5 +1,5 @@
 <%def name="generate_input_state(
-        kernel_declaration, alpha, beta, squeezing, decoherence, transmission, seed)">
+        kernel_declaration, alpha, beta, squeezing, decoherence, seed)">
 <%
     real = dtypes.ctype(dtypes.real_for(alpha.dtype))
     comp = alpha.ctype
@@ -25,12 +25,11 @@ ${kernel_declaration}
 
     ${real} sq = ${squeezing.load_idx}(mode_idx);
     ${real} eps = ${decoherence.load_idx}(mode_idx);
-    ${real} t = ${transmission.load_idx}(mode_idx);
 
     ${real} sinh_sq = (${exp}(sq) - ${exp}(-sq)) / 2;
     ${real} cosh_sq = (${exp}(sq) + ${exp}(-sq)) / 2;
-    ${real} n = sinh_sq * sinh_sq * t;
-    ${real} m = (1 - eps) * cosh_sq * sinh_sq * t;
+    ${real} n = sinh_sq * sinh_sq;
+    ${real} m = (1 - eps) * cosh_sq * sinh_sq;
 
     ${sampler.module}Result w12 = ${sampler.module}sample(&st);
     ${real} w1 = w12.v[0];
