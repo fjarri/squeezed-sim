@@ -16,7 +16,8 @@ def plot_experiment(api_id='ocl', device_num=0):
         unitary=transmission_matrix(),
         inputs=50,
         squeezing=squeezing_coefficients(),
-        decoherence=0.1,
+        decoherence=0.14,
+        transmission=1.0063,
         )
 
     merged_result_set = simulate_sequential(
