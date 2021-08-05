@@ -113,7 +113,7 @@ def plot_varying_inputs(api_id='ocl', device_num=0):
     sp = fig.add_subplot(1, 1, 1)
     sp.set_xlim(0, modes)
     sp.set_xlabel('inputs')
-    sp.set_ylabel('$\\mathcal{P}_M(M)$')
+    sp.set_ylabel('$\\mathcal{G}_M(M)$')
 
     sp.fill_between(
         input_values, max_count_values - max_count_errors, max_count_values + max_count_errors,
@@ -132,7 +132,7 @@ def plot_varying_inputs(api_id='ocl', device_num=0):
     sp.set_xlim(0, modes)
     sp.set_yscale('log')
     sp.set_xlabel('inputs')
-    sp.set_ylabel('$\\mathcal{P}_M(M)$')
+    sp.set_ylabel('$\\mathcal{G}_M(M)$')
 
     sp.fill_between(
         input_values, max_count_values - max_count_errors, max_count_values + max_count_errors,
@@ -204,7 +204,7 @@ def plot_varying_counts(api_id='ocl', device_num=0):
     sp = fig.add_subplot(1, 1, 1)
     sp.set_xlim(0, modes)
     sp.set_xlabel('$m$')
-    sp.set_ylabel('$\\mathcal{P}_M(m)$')
+    sp.set_ylabel('$\\mathcal{G}_M(m)$')
 
     sp.fill_between(
         result.x_values, result.values - result.errors, result.values + result.errors,
@@ -223,7 +223,7 @@ def plot_varying_counts(api_id='ocl', device_num=0):
     sp.set_yscale('log')
     sp.set_xlim(0, modes)
     sp.set_xlabel('$m$')
-    sp.set_ylabel('$\\mathcal{P}_M(m)$')
+    sp.set_ylabel('$\\mathcal{G}_M(m)$')
 
     sp.fill_between(
         result.x_values, result.values - result.errors, result.values + result.errors,
@@ -242,9 +242,9 @@ def plot_varying_counts(api_id='ocl', device_num=0):
     sp.set_xlim(0, modes)
     sp.set_xlabel('$m$')
 
-    sp.plot(result.x_values, result.errors, label='errors($\\mathcal{P}_M(m)$)')
+    sp.plot(result.x_values, result.errors, label='errors($\\mathcal{G}_M(m)$)')
     sp.plot(result.x_values, numpy.abs(result.values - result_ref),
-        dashes=mplh.dash['--'], label='$|\\mathcal{P}_M(m) - \\mathcal{P}_M^{\\mathrm{(ref)}}(m)|$')
+        dashes=mplh.dash['--'], label='$|\\mathcal{G}_M(m) - \\mathcal{G}_M^{\\mathrm{(ref)}}(m)|$')
 
     sp.legend()
 
@@ -258,9 +258,9 @@ def plot_varying_counts(api_id='ocl', device_num=0):
     sp.set_xlim(0, modes)
     sp.set_xlabel('$m$')
 
-    sp.plot(result.x_values, result.errors, label='errors($\\mathcal{P}_M(m)$)')
+    sp.plot(result.x_values, result.errors, label='errors($\\mathcal{G}_M(m)$)')
     sp.plot(result.x_values, numpy.abs(result.values - result_ref),
-        dashes=mplh.dash['--'], label='$|\\mathcal{P}_M(m) - \\mathcal{P}_M^{\\mathrm{(ref)}}(m)|$')
+        dashes=mplh.dash['--'], label='$|\\mathcal{G}_M(m) - \\mathcal{G}_M^{\\mathrm{(ref)}}(m)|$')
 
     sp.legend()
 

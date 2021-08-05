@@ -143,7 +143,7 @@ def run(results_dir, api_id='ocl', gpu_name_filters=[]):
 
     sp.legend(handlelength=3)
     sp.set_xlabel('$m / M$')
-    sp.set_ylabel('$M \\mathcal{P}_M(m)$')
+    sp.set_ylabel('$M \\mathcal{G}_M(m)$')
 
     fig.tight_layout(pad=0.1)
     fig.savefig(str(Path('figures') / "compound_click_probability_log.pdf"))

@@ -63,7 +63,7 @@ def plot_experiment(api_id='ocl', device_num=0):
     sp.plot(result.x_values, result.reference, dashes=mplh.dash['--'], label='experiment')
     sp.legend()
     sp.set_xlabel('$m$')
-    sp.set_ylabel('$\\mathcal{P}(m)$')
+    sp.set_ylabel('$\\mathcal{G}(m)$')
 
     fig.tight_layout(pad=0.1)
     fig.savefig(str(Path('figures') / "experimental_comparison_compound.pdf"))
